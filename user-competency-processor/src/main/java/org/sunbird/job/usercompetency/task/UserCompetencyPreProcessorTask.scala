@@ -42,20 +42,20 @@ class UserCompetencyPreProcessorTask(config: UserCompetencyPreProcessorConfig, k
 
 // $COVERAGE-OFF$ Disabling scoverage as the below code can only be invoked within flink cluster
 
-object ProgramCertPreProcessorTask {
+object UserCompetencyPreProcessorTask {
     def main(args: Array[String]): Unit = {
         val configFilePath = Option(ParameterTool.fromArgs(args).get("config.file.path"))
         val config = configFilePath.map {
             path => ConfigFactory.parseFile(new File(path)).resolve()
-        }.getOrElse(ConfigFactory.load("program-cert-pre-processor.conf").withFallback(ConfigFactory.systemEnvironment()))
-        val certificatePreProcessorConfig = new ProgramCertPreProcessorConfig(config)
-        val kafkaUtil = new FlinkKafkaConnector(certificatePreProcessorConfig)
+        }.getOrElse(ConfigFactory.load("user-competency-processor.conf").withFallback(ConfigFactory.systemEnvironment()))
+        val userCompetencyConfig = new UserCompetencyPreProcessorConfig(config)
+        val kafkaUtil = new FlinkKafkaConnector(userCompetencyConfig)
         val httpUtil = new HttpUtil()
-        val task = new ProgramCertPreProcessorTask(certificatePreProcessorConfig, kafkaUtil, httpUtil)
+        val task = new UserCompetencyPreProcessorTask(userCompetencyConfig, kafkaUtil, httpUtil)
         task.process()
     }
 }
 
-class ProgramCertPreProcessorKeySelector extends KeySelector[Event, String] {
+class UserCompetencyPreProcessorKeySelector extends KeySelector[Event, String] {
     override def getKey(event: Event): String = Set(event.userId, event.courseId, event.batchId).mkString("_")
 }

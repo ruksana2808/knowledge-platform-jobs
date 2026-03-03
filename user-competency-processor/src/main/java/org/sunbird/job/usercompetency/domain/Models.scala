@@ -1,4 +1,4 @@
-package org.sunbird.job.programcert.domain
+package org.sunbird.job.usercompetency.domain
 
 import java.util.{Date, UUID}
 
