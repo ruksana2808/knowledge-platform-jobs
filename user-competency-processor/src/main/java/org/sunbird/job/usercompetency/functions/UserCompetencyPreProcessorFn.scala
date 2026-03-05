@@ -205,7 +205,7 @@ class UserCompetencyPreProcessorFn(config: UserCompetencyPreProcessorConfig, htt
     logger.info("Inside the Process ElementForProgram");
   }
 
-  def getProgramChildren(programId: String)(metrics: Metrics, config: ProgramCertPreProcessorConfig, cache: DataCache, httpUtil: HttpUtil): java.util.Map[String, AnyRef] = {
+  def getProgramChildren(programId: String)(metrics: Metrics, config: UserCompetencyPreProcessorConfig, cache: DataCache, httpUtil: HttpUtil): java.util.Map[String, AnyRef] = {
     val query = QueryBuilder.select(config.Hierarchy).from(config.contentHierarchyKeySpace, config.contentHierarchyTable)
       .where(QueryBuilder.eq(config.identifier, programId))
     val row = cassandraUtil.find(query.toString)
@@ -330,16 +330,32 @@ class UserCompetencyPreProcessorFn(config: UserCompetencyPreProcessorConfig, htt
     list.asScala.toList
   }
 
+  def convertToScalaMap(item: Any): Map[String, AnyRef] = item match {
+    case jm: java.util.Map[_, _] => jm.asScala.collect { case (k: String, v: AnyRef) => k -> v }.toMap
+    case sm: Map[_, _] => sm.collect { case (k: String, v: AnyRef) => k -> v }
+    case _ => Map.empty[String, AnyRef]
+  }
+
+  def normalizeCompetencies(rawCompetencies: AnyRef): java.util.List[java.util.Map[String, AnyRef]] = {
+    val scalaList: List[Map[String, AnyRef]] = rawCompetencies match {
+      case null => List.empty
+      case jl: java.util.List[_] => jl.asScala.toList.map(convertToScalaMap)
+      case sl: List[_] => sl.map(convertToScalaMap)
+      case _ => List.empty
+    }
+    scalaList.map(_.asJava).asJava
+  }
+
   def getCourseInfo(courseId: String)(
     metrics: Metrics,
-    config: ProgramCertPreProcessorConfig,
+    config: UserCompetencyPreProcessorConfig,
     cache: DataCache,
     httpUtil: HttpUtil
   ): java.util.Map[String, AnyRef] = {
     val courseMetadata = cache.getWithRetry(courseId)
     if (null == courseMetadata || courseMetadata.isEmpty) {
       val url =
-        config.contentReadURL + courseId + "?fields=identifier,primaryCategory,leafNodes,language,languageMapV1"
+        config.contentReadURL + courseId + "?fields=identifier,primaryCategory,leafNodes,language,languageMapV1,competencies_v6"
       val response = getAPICall(url, "content")(config, httpUtil, metrics)
       val primaryCategory = StringContext
         .processEscapes(
@@ -350,12 +366,14 @@ class UserCompetencyPreProcessorFn(config: UserCompetencyPreProcessorConfig, htt
         .getOrElse(config.leafNodes, List.empty[String]).asInstanceOf[List[String]]
       val language = response
         .getOrElse(config.language, List.empty[String]).asInstanceOf[List[String]]
+      val competenciesV6 = normalizeCompetencies(response.getOrElse(config.competenciesV6, null).asInstanceOf[AnyRef])
       val courseInfoMap: java.util.Map[String, AnyRef] =
         new java.util.HashMap[String, AnyRef]()
       courseInfoMap.put("courseId", courseId)
       courseInfoMap.put(config.primaryCategory, primaryCategory)
       courseInfoMap.put(config.leafNodes, leafNodes.asJava)
       courseInfoMap.put(config.language, language.asJava)
+      courseInfoMap.put(config.competenciesV6, competenciesV6)
       courseInfoMap
     } else {
       val primaryCategory = StringContext
@@ -369,12 +387,18 @@ class UserCompetencyPreProcessorFn(config: UserCompetencyPreProcessorConfig, htt
         .getOrElse("leafnodes", new java.util.ArrayList()).asInstanceOf[java.util.List[String]]
       val language = courseMetadata
         .getOrElse(config.language, new java.util.ArrayList()).asInstanceOf[java.util.List[String]]
+      val competenciesV6 = if (courseMetadata.contains(config.competenciesV6)) {
+        normalizeCompetencies(courseMetadata(config.competenciesV6).asInstanceOf[AnyRef])
+      } else {
+        new java.util.ArrayList[java.util.Map[String, AnyRef]]()
+      }
       val courseInfoMap: java.util.Map[String, AnyRef] =
         new java.util.HashMap[String, AnyRef]()
       courseInfoMap.put("courseId", courseId)
       courseInfoMap.put(config.primaryCategory, primaryCategory)
       courseInfoMap.put(config.leafNodes, leafNodes)
       courseInfoMap.put(config.language, language)
+      courseInfoMap.put(config.competenciesV6, competenciesV6)
       courseInfoMap
     }
 

@@ -22,6 +22,7 @@ class UserCompetencyPreProcessorConfig(override val config: Config) extends Base
   val kafkaOutputTopic: String = config.getString("kafka.output.topic")
   val kafkaOutputFailedTopic: String = config.getString("kafka.output.failed.topic")
   val certificatePreProcessorConsumer: String = "program-cert-pre-processor-consumer"
+  val userCompetencyPreProcessorConsumer: String = "user-competency-pre-processor-consumer"
   val generateCertificateProducer = "generate-certificate-sink"
   val generateCertificateFailedEventProducer = "generate-certificate-failed-event-sink"
   override val kafkaConsumerParallelism: Int = config.getInt("task.consumer.parallelism")
@@ -84,4 +85,5 @@ class UserCompetencyPreProcessorConfig(override val config: Config) extends Base
   val leafNodesKey = "leafnodes"
   val language = "language"
   val langContentStatus: String = "lang_contentstatus"
+  val competenciesV6: String = "competencies_v6"
 }
